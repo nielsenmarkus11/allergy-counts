@@ -187,6 +187,6 @@ ggplot(summary,aes(week,day,fill=value)) + geom_tile() +
   labs(title="Seasonal Allergies Pollen Trends",
        subtitle="By Pollen Type and Year",
        caption="Source: Intermountain Allergy & Asthma",
-       x="Week", y="", fill = "Pollen Count")
+       x="", y="", fill = "Pollen Count")
 dev.off()
 
