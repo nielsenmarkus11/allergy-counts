@@ -167,10 +167,21 @@ ggplot(all.weeds,aes(week,day,fill=value)) + geom_tile()  +
   facet_grid(variable~year) + 
   scale_fill_gradient(low = "white", high = "blue") 
 
+
 pdf("img/overall-trend.pdf",width=11.5, height=7)
 summary <- final[final$variable %in% c("grass","mold","trees","weeds"),]
+
+# get week of first day of each month
+mnth <- expand.grid(month=1:12,day=1,year=2011:2017)
+mnth$dt <- mdy(paste(mnth$month,mnth$day,mnth$year,sep='-'))
+mnth$wk <- lubridate::week(mnth$dt)
+mnth$mnname <- month(mnth$dt, label = TRUE, abbr = TRUE)
+mnlab <- aggregate(wk~mnname,data=mnth,FUN = 'mean')
+
 ggplot(summary,aes(week,day,fill=value)) + geom_tile() +
   facet_grid(year~variable) + 
+  scale_y_discrete(labels=c("","F","","W","","M")) +
+  scale_x_continuous(breaks=mnlab$wk,labels=mnlab$mnname) +
   scale_fill_gradient(low = "white", high = "blue", breaks=0:5,
                       labels=c("None","Very Low","Low","Moderate","High","Very High")) +
   labs(title="Seasonal Allergies Pollen Trends",
