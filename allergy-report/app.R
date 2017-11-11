@@ -34,13 +34,27 @@ ui <- fluidPage(theme="cerulean",
                 
                 # Application title
                 titlePanel("Seasonal Allergen Trends"),
-                fluidRow(HTML('<div class="btn-group btn-group-justified">
-                 <a href="#" type="button" id="grass" class="btn action-button btn-default"><img src="grass1.png" style="width: 100px"></img><p style="color: rgb(0,100,0)">Grass</p></a>
-                 <a href="#" type="button" id="mold" class="btn action-button btn-default"><img src="mold1.png" style="width: 100px"></img><p style="color: rgb(100,100,100)">Mold</p></a></span>
-                 <a href="#" type="button" id="trees" class="btn action-button btn-default"><img src="tree1.png" style="width: 100px"></img><p style="color: rgb(63,42,20)">Tree</p></a></span>
-                 <a href="#" type="button" id="weeds" class="btn action-button btn-default"><img src="weeds.png" style="width: 50px"></img><p style="color: rgb(165,165,0)">Weeds</p></a></span>
-                 </div>
-                ')),
+                
+                # Buttons on Top
+                fluidRow(HTML('<div id="pollen" class="btn-group btn-group-justified shiny-input-radiogroup">
+                              <label class="btn btn-default">
+                              <input type="radio" name="pollen" value="grass" checked="checked" style="display:none;">
+                              <img src="grass1.png" style="width: 100px"></img><p style="color: rgb(0,100,0)">Grass</p>
+                              </label>
+                              <label class="btn btn-default">
+                              <input type="radio" name="pollen" value="mold" style="display:none;">
+                              <img src="mold1.png" style="width: 100px"></img><p style="color: rgb(100,100,100)">Mold</p>
+                              </label>
+                              <label class="btn btn-default">
+                              <input type="radio" name="pollen" value="trees" style="display:none;">
+                              <img src="tree1.png" style="width: 100px"></img><p style="color: rgb(63,42,20)">Tree</p>
+                              </label>
+                              <label class="btn btn-default">
+                              <input type="radio" name="pollen" value="weeds" style="display:none;">
+                              <img src="weeds.png" style="width: 50px"></img><p style="color: rgb(165,165,0)">Weeds</p>
+                              </label>
+                              </div>
+                              ')),
                 
                 # Sidebar with a slider input for number of bins 
                 fluidRow(
@@ -56,11 +70,10 @@ ui <- fluidPage(theme="cerulean",
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-  
-  observeEvent(input$grass, {
-    ptype <- "grass"
     
     output$loesschart <- renderPlotly({
+      
+      ptype <- input$pollen
       
       wksum$dt <- as.Date(paste(wksum$year, wksum$week, 1, sep = "-"),"%Y-%U-%u")
       
@@ -84,111 +97,17 @@ server <- function(input, output) {
     })
     
     output$boxplot <- renderPlotly({
+      
+      ptype <- input$pollen
+      
       plot_ly(data=wksum[wksum$variable==ptype,],
-              x=~mnth, y=~pollen_cnt,
-              color = I('rgba(0, 100, 0, 1)'), type = 'box') %>%
+              x=~mnth, y=~pollen_cnt, type = 'box',
+              marker = list(color=coldat$color[coldat$variable==ptype]),
+              line = list(color=coldat$color[coldat$variable==ptype])) %>%
         layout(xaxis = list(title = ''),
-               yaxis = list(title = 'Average Pollen Count Severity'))
-    })
-  })
-  observeEvent(input$mold, {
-    ptype <- "mold"
-    
-    output$loesschart <- renderPlotly({
-      
-      loessMod <- loess(pollen_cnt~week, span = .6, data= wksum[wksum$variable==ptype,])
-      
-      plot_ly(data=wksum[wksum$variable==ptype,], 
-              x=~week, y=~pollen_cnt, color = I("black")) %>% 
-        add_markers(text = ~variable, showlegend=FALSE) %>% 
-        add_lines(y=~ifelse(fitted(loess(pollen_cnt~week, span = .6))>0,
-                            fitted(loess(pollen_cnt~week, span = .6)),0),
-                  line = list(color = coldat$color[coldat$variable==ptype]),
-                  name = "Loess Smoother") %>% 
-        add_ribbons(data = augment(loessMod),
-                    ymin = ~ifelse(.fitted - 1.96*.se.fit>0,.fitted - 1.96*.se.fit,0),
-                    ymax = ~ifelse(.fitted + 1.96*.se.fit>0,.fitted + 1.96*.se.fit,0),
-                    line = list(color = coldat$fill[coldat$variable==ptype]),
-                    name = "Standard Error") %>%
-        layout(xaxis = list(title = 'Week'),
                yaxis = list(title = 'Average Pollen Count Severity'),
-               legend = list(x = 0.80, y = 0.90))
+               showlegend = FALSE)
     })
-    
-    output$boxplot <- renderPlotly({
-      plot_ly(data=wksum[wksum$variable==ptype,],
-              x=~mnth, y=~pollen_cnt,
-              color = I('rgba(100, 100, 100, 1)'), type = 'box') %>%
-        layout(xaxis = list(title = ''),
-               yaxis = list(title = 'Average Pollen Count Severity'))
-    })
-  })
-  observeEvent(input$trees, {
-    ptype <- "trees"
-    
-    output$loesschart <- renderPlotly({
-      
-      loessMod <- loess(pollen_cnt~week, span = .6, data= wksum[wksum$variable==ptype,])
-      
-      plot_ly(data=wksum[wksum$variable==ptype,], 
-              x=~week, y=~pollen_cnt, color = I("black")) %>% 
-        add_markers(text = ~variable, showlegend=FALSE) %>% 
-        add_lines(y=~ifelse(fitted(loess(pollen_cnt~week, span = .6))>0,
-                            fitted(loess(pollen_cnt~week, span = .6)),0),
-                  line = list(color = coldat$color[coldat$variable==ptype]),
-                  name = "Loess Smoother") %>% 
-        add_ribbons(data = augment(loessMod),
-                    ymin = ~ifelse(.fitted - 1.96*.se.fit>0,.fitted - 1.96*.se.fit,0),
-                    ymax = ~ifelse(.fitted + 1.96*.se.fit>0,.fitted + 1.96*.se.fit,0),
-                    line = list(color = coldat$fill[coldat$variable==ptype]),
-                    name = "Standard Error") %>%
-        layout(xaxis = list(title = 'Week'),
-               yaxis = list(title = 'Average Pollen Count Severity'),
-               legend = list(x = 0.80, y = 0.90))
-    })
-    
-    output$boxplot <- renderPlotly({
-      plot_ly(data=wksum[wksum$variable==ptype,],
-              x=~mnth, y=~pollen_cnt,
-              color = I('rgba(63, 42, 20, 1)'), type = 'box') %>%
-        layout(xaxis = list(title = ''),
-               yaxis = list(title = 'Average Pollen Count Severity'))
-    })
-  })
-  observeEvent(input$weeds, { 
-    ptype <- "weeds"
-    
-    output$loesschart <- renderPlotly({
-      
-      loessMod <- loess(pollen_cnt~week, span = .6, data= wksum[wksum$variable==ptype,])
-      
-      plot_ly(data=wksum[wksum$variable==ptype,], 
-              x=~week, y=~pollen_cnt, color = I("black")) %>% 
-        add_markers(text = ~variable, showlegend=FALSE) %>% 
-        add_lines(y=~ifelse(fitted(loess(pollen_cnt~week, span = .6))>0,
-                            fitted(loess(pollen_cnt~week, span = .6)),0),
-                  line = list(color = coldat$color[coldat$variable==ptype]),
-                  name = "Loess Smoother") %>% 
-        add_ribbons(data = augment(loessMod),
-                    ymin = ~ifelse(.fitted - 1.96*.se.fit>0,.fitted - 1.96*.se.fit,0),
-                    ymax = ~ifelse(.fitted + 1.96*.se.fit>0,.fitted + 1.96*.se.fit,0),
-                    line = list(color = coldat$fill[coldat$variable==ptype]),
-                    name = "Standard Error") %>%
-        layout(xaxis = list(title = 'Week'),
-               yaxis = list(title = 'Average Pollen Count Severity'),
-               legend = list(x = 0.80, y = 0.90))
-    })
-    
-    output$boxplot <- renderPlotly({
-      # ptype <- ptype()
-      
-      plot_ly(data=wksum[wksum$variable==ptype,],
-              x=~mnth, y=~pollen_cnt,
-              color = I('rgba(165, 165, 0, 1)'), type = 'box') %>%
-        layout(xaxis = list(title = ''),
-               yaxis = list(title = 'Average Pollen Count Severity'))
-    })
-  })
   
 }
 
