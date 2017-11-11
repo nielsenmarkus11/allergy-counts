@@ -1,19 +1,22 @@
 ### Pull the public facebook page allergy count data from sandy allergy clinic
-library(Rfacebook)
-library(dplyr)
-library(ggplot2)
-library(Hmisc)
-library(lubridate)
-library(reshape2)
+library(Rfacebook)  # Facebook API
+library(dplyr)      # Data Wrangling
+library(ggplot2)    # Graphing
+library(Hmisc)      # Miscellaneous Useful Functions
+library(lubridate)  # Date- and Time-stamp functions
+library(reshape2)   # Data Wrangling
 
 source('fbauth.R')
 
-fb_oauth <- fbOAuth(app_id=app_id, app_secret=app_secret)
+Sys.setenv('https_proxy'="")
+fb_oauth <- fbOAuth(app_id=.app_id, app_secret=.app_secret)
 
+# Find allergy page
 pages <- searchPages(string="intermountain", token=fb_oauth)
 pages[grep("sandy",pages$name,ignore.case = T),]
 
 allergy <- getPage(page="sandyclinicallergy", token = fb_oauth,n=1500)
+head(allergy)
 
 # Filter posts to only include those that have "pollen count" in the message text
 counts <- allergy%>%
@@ -27,7 +30,8 @@ dates.new <- ifelse(nchar(dates)==8,as.Date(strptime(dates,"%m/%d/%y")),as.Date(
 
 # Now parse the remainder of the text for pollen counts
 pollen <- ifelse(datecuts==-1,counts$message,substr(counts$message,datecuts + attr(datecuts, "match.length"),nchar(counts$message)))
-pollen.split <- gsub(" \\(.*?\\)","",gsub("\n"," ",iconv(pollen,"latin1", "ASCII",sub=".")))
+pollen.split <- gsub("\u2026","\\.\\.\\.",pollen)
+pollen.split <- gsub(" \\(.*?\\)","",gsub("\n"," ",iconv(pollen.split,"latin1", "ASCII",sub="")))
 pollen.split <- gsub("tune\\.\\.\\.","",pollen.split)
 pollen.split <- gsub("moderate high","high",pollen.split,ignore.case = T)
 pollen.split <- gsub("extra","very",pollen.split,ignore.case = T)
@@ -44,6 +48,7 @@ pollen.split <- gsub("\\<low\\>","2",pollen.split,ignore.case = T)
 pollen.split <- gsub("mold: ","mold\\.\\.\\.",pollen.split,ignore.case=T)
 pollen.split <- gsub("grass: ","grass\\.\\.\\.",pollen.split,ignore.case=T)
 pollen.split <- gsub("(\\b)(\\.\\.\\.\\s+)","\\1\\.\\.\\.",pollen.split)
+pollen.split <- gsub("(\\b)(\\s+\\.\\.\\.)","\\1\\.\\.\\.",pollen.split)
 pollen.split <- gsub("trees","",pollen.split,ignore.case = T)
 pollen.split <- gsub("weeds\\.\\.\\.\\d","",pollen.split,ignore.case = T)
 pollen.split <- gsub("weeds","",pollen.split,ignore.case = T)
@@ -67,9 +72,11 @@ pollen.split <- gsub("sagebrush","sage",pollen.split,ignore.case = T)
 pollen.split <- gsub("sage","sagebrush",pollen.split,ignore.case = T)
 pollen.split <- gsub("walnt","walnut",pollen.split,ignore.case = T)
 pollen.split <- gsub("cattalil","cattail",pollen.split,ignore.case = T)
-pollen.split <- gsub("\\. ","\\.",pollen.split,ignore.case = T)
 pollen.split <- gsub("(\\b)(\\.+)(\\d)","\\1\\.\\.\\.\\3",pollen.split,ignore.case = T)
+pollen.split <- gsub("\\. ","\\.",pollen.split,ignore.case = T)
 pollen.split <- gsub("(\\d)\\.\\.\\.cedar","cedar\\.\\.\\.\\1",pollen.split,ignore.case = T)
+pollen.split <- gsub("\\.\\.\\.elm\\.\\.\\.","elm\\.\\.\\.",pollen.split,ignore.case = T)
+pollen.split <- gsub("help\\.\\.\\.(\\d)","help \\1",pollen.split,ignore.case = T)
 
 
 
@@ -80,7 +87,7 @@ pollen.split <- gsub("4!","4",pollen.split,ignore.case = T)
 pollen.split <- gsub("(\\d)(-|\\()relative","\\1",pollen.split,ignore.case = T)
 pollen.split <- gsub("(\\d)(\\(|\\r)","\\1",pollen.split,ignore.case = T)
 pollen.split <- gsub("(\\d)\\r","\\1",pollen.split,ignore.case = T)
-
+head(pollen.split)
 
 
 clean.split <- strsplit(pollen.split,split=" ")
@@ -127,13 +134,20 @@ for (i in 1:length(final.clean)){
   }
 }
 
+
+# See what is still missing
+miss <- which(!complete.cases(counts))
+pollen[miss]
+pollen.split[miss]
+final.clean[miss]
+counts[miss,]
+
 counts$created_time <- as.Date(substr(counts$created_time,1,10))
 
 # remove weed since it is too general
-counts$`maple/mulberry`<-NULL
 counts$weed<-NULL
 
-
+# Define allergen groups for trees and weeds
 trees <- c("alder","ash","beech","birch","cedar","chestnut","cottonwood",
            "elm","ginkgo","linden","maple","mulberry","oak","olive","pecan",
            "pine","privet","sycamore","walnut","willow")
@@ -145,8 +159,12 @@ weeds <- c("cattail","chenopod","dock","ephedra","hemp",
 # counts$weeds <- rowMeans(counts[,weeds], na.rm = TRUE)
 counts$weeds <- apply(counts[,weeds],1,max,na.rm = TRUE)
 
+# Take a look at our data
+head(counts)
 describe(counts)
 
+
+# Create calendar plot
 final <- melt(counts[,-1],id="created_time")
 
 # get day of week and week of year
@@ -155,6 +173,7 @@ final$day <- ordered(weekdays(final$created_time),
 
 final$week <- lubridate::week(final$created_time)
 final$year <- year(final$created_time)
+head(final)
 
 # Now plot pollen counts over time
 all.trees <- final[final$variable %in% trees,]
