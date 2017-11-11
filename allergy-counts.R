@@ -209,3 +209,4 @@ ggplot(summary,aes(week,day,fill=value)) + geom_tile() +
        x="", y="", fill = "Pollen Count")
 dev.off()
 
+save(list=ls(),file="allergy-report/data/pollen-final.Rdat")
